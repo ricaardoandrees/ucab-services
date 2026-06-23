@@ -165,7 +165,7 @@ router.post('/register', async (req, res) => {
         (ci, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
          fecha_nacimiento, sexo, calle1, estado, residencia, num_personal,
          correo, estado_de_cuenta, saldo_virtual)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'Activa',0)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'Suspendida',0)
        RETURNING ci, primer_nombre, primer_apellido, correo, estado_de_cuenta`,
       [CI, primer_nombre, segundo_nombre || null, primer_apellido,
        segundo_apellido || null, fecha_nacimiento, sexo,
