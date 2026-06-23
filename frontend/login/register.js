@@ -23,6 +23,7 @@ const CAMPOS_REQUERIDOS = [
   { id: 'primer_apellido',  label: 'El primer apellido es obligatorio.'     },
   { id: 'correo',           label: 'El correo es obligatorio.'              },
   { id: 'num_personal',     label: 'El teléfono es obligatorio.'            },
+  { id: 'contrasena',      label: 'La contraseña es obligatoria.'           },
   { id: 'calle1',           label: 'La calle/avenida es obligatoria.'       },
   { id: 'residencia',       label: 'La ciudad es obligatoria.'              },
   { id: 'estado',           label: 'El estado es obligatorio.'              },
@@ -61,6 +62,13 @@ function validar() {
     ok = false;
   }
 
+  // Validación de contraseña mínima
+  const passInput = document.getElementById('contrasena');
+  if (passInput.value && passInput.value.length < 6) {
+    mostrarError(passInput, 'error-contrasena', 'La contraseña debe tener al menos 6 caracteres.');
+    ok = false;
+  }
+
   return ok;
 }
 
@@ -85,7 +93,7 @@ form.addEventListener('submit', async (e) => {
     calle1:           document.getElementById('calle1').value.trim(),
     residencia:       document.getElementById('residencia').value.trim(),
     estado:           document.getElementById('estado').value,
-    // TODO: agregar contrasena cuando Marlene confirme
+    contrasena:       document.getElementById('contrasena').value,
   };
 
   setLoading(true);

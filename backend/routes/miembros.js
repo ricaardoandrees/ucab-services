@@ -168,6 +168,10 @@ router.patch('/:ci/estado', auth, autorizar('admin', 'director'), async (req, re
 
     if (rowCount === 0) return res.status(404).json({ error: 'Miembro no encontrado.' });
 
+    if (estado_de_cuenta === 'Activa') {
+      await pool.query(`DELETE FROM Sesion WHERE CI = $1 AND intentos_fallidos > 0`, [ci]);
+    }
+
     res.json({ mensaje: `Estado actualizado a "${estado_de_cuenta}".` });
   } catch (err) {
     console.error('Error PATCH /miembros/:ci/estado:', err);
@@ -242,6 +246,26 @@ router.get('/:ci/sesiones', auth, autorizar('admin', 'director'), async (req, re
   } catch (err) {
     console.error('Error GET /miembros/:ci/sesiones:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+router.patch('/:ci/reset-password', auth, autorizar('admin', 'director'), async (req, res) => {
+  const { ci } = req.params;
+  const { contrasena_nueva } = req.body;
+
+  if (!contrasena_nueva || contrasena_nueva.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  try {
+    const safeCI       = ci.replace(/"/g, '');
+    const safePassword = contrasena_nueva.replace(/'/g, "''");
+    await pool.query(`ALTER USER "${safeCI}" WITH PASSWORD '${safePassword}'`);
+    await pool.query(`UPDATE Miembro SET ult_fecha_cambio = NOW() WHERE ci = $1`, [ci]);
+    res.json({ mensaje: 'Contraseña reseteada correctamente.' });
+  } catch (err) {
+    console.error('Error reset-password:', err);
+    res.status(500).json({ error: 'Error interno del servidor.' });
   }
 });
 

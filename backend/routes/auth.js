@@ -1,23 +1,22 @@
-const router = require('express').Router();
-const jwt    = require('jsonwebtoken');
-const pool   = require('../db');
-// const bcrypt = require('bcryptjs'); // TODO: descomentar cuando Marlene confirme opcion B (columna contrasena)
+const router    = require('express').Router();
+const jwt       = require('jsonwebtoken');
+const pool      = require('../db');
+const { Client } = require('pg');
+const auth = require('../middleware/auth');
+require('dotenv').config();
 
-/* ============================================================
+/* 
    HELPER: detectar subtipo y cargo del miembro dado su CI.
-   ORDEN CRITICO: Becario y Preparador ANTES de Estudiante porque
-   ambos son subclases — un Becario aparece en Becario Y en
-   Estudiante, así que si consultamos Estudiante primero obtenemos
-   el subtipo equivocado.
-============================================================ */
+   ORDEN CRITICO: Becario y Preparador ANTES de Estudiante.
+ */
 async function detectarSubtipo(CI) {
   const tablas = [
-    { tabla: 'Becario',                subtipo: 'Becario',                campoExtra: null   },
-    { tabla: 'Preparador',             subtipo: 'Preparador',             campoExtra: null   },
-    { tabla: 'Estudiante',             subtipo: 'Estudiante',             campoExtra: null   },
-    { tabla: 'Profesor',               subtipo: 'Profesor',               campoExtra: null   },
-    { tabla: 'PersonalAdministrativo', subtipo: 'PersonalAdministrativo', campoExtra: 'cargo'},
-    { tabla: 'Egresado',               subtipo: 'Egresado',               campoExtra: null   },
+    { tabla: 'Becario',                subtipo: 'Becario',                campoExtra: null    },
+    { tabla: 'Preparador',             subtipo: 'Preparador',             campoExtra: null    },
+    { tabla: 'Estudiante',             subtipo: 'Estudiante',             campoExtra: null    },
+    { tabla: 'Profesor',               subtipo: 'Profesor',               campoExtra: null    },
+    { tabla: 'PersonalAdministrativo', subtipo: 'PersonalAdministrativo', campoExtra: 'cargo' },
+    { tabla: 'Egresado',               subtipo: 'Egresado',               campoExtra: null    },
   ];
 
   for (const { tabla, subtipo, campoExtra } of tablas) {
@@ -35,31 +34,16 @@ async function detectarSubtipo(CI) {
   return { subtipo: 'Miembro', cargo: null };
 }
 
-/* ============================================================
-   POST /api/auth/login
-   HU-12: el trigger RN-03 bloquea automaticamente al llegar a 3
-   intentos fallidos (INSERT en Sesion lo dispara en la BD).
-   TODO (pendiente Marlene):
-     Opcion A — DCL:
-       const client = new Client({...dbConfig, user: CI, password: contrasena});
-       await client.connect(); // lanza error si credenciales incorrectas
-       await client.end();
-     Opcion B — columna contrasena:
-       const ok = await bcrypt.compare(contrasena, miembro.contrasena);
-       if (!ok) { registrar intento fallido; return 401; }
-   Por ahora: cualquier correo que exista en la BD puede hacer login.
-============================================================ */
 router.post('/login', async (req, res) => {
-  const { correo } = req.body;
-  // TODO: agregar 'contrasena' al destructuring cuando Marlene confirme
+  const { correo, contrasena } = req.body;
 
-  if (!correo) {
-    return res.status(400).json({ error: 'El correo es requerido' });
+  if (!correo || !contrasena) {
+    return res.status(400).json({ error: 'Correo y contraseña son requeridos' });
   }
 
   try {
     const result = await pool.query(
-      `SELECT ci, primer_nombre, primer_apellido, correo, estado_de_cuenta, saldo_virtual
+      `SELECT ci, primer_nombre, primer_apellido, correo, estado_de_cuenta
        FROM Miembro WHERE correo = $1`,
       [correo]
     );
@@ -77,20 +61,50 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Cuenta suspendida. Contacta al administrador.' });
     }
 
-    // TODO: verificar contrasena aqui (ver comentario de arriba)
-    // const contrasenaValida = await bcrypt.compare(contrasena, miembro.contrasena);
+    const clientDCL = new Client({
+      host:     process.env.DB_HOST,
+      port:     process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      user:     miembro.ci,
+      password: contrasena
+    });
 
-    // Registrar sesion — el trigger RN-03 cuenta intentos_fallidos y bloquea al llegar a 3
+    let contrasenaValida = false;
+    try {
+      await clientDCL.connect();
+      await clientDCL.end();
+      contrasenaValida = true;
+    } catch {
+      contrasenaValida = false;
+    }
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total FROM Sesion
+       WHERE CI = $1
+       AND intentos_fallidos > 0
+       AND fecha_inicio > COALESCE(
+         (SELECT MAX(fecha_inicio) FROM Sesion
+          WHERE CI = $1 AND intentos_fallidos = 0),
+         '1900-01-01'
+       )`,
+      [miembro.ci]
+    );
+    const intentosPrevios = parseInt(countResult.rows[0].total);
+    const intentoActual   = contrasenaValida ? 0 : intentosPrevios + 1;
+
     const uid = (req.headers['user-agent'] || 'unknown').substring(0, 40);
     await pool.query(
       `INSERT INTO Sesion (fecha_inicio, uid_dispositivo, CI, intentos_fallidos, MFA)
        VALUES (NOW(), $1, $2, $3, 'Inactivo')`,
-      [uid, miembro.ci, 0]  // TODO: cambiar 0 por (contrasenaValida ? 0 : 1)
+      [uid, miembro.ci, intentoActual]
     );
+
+    if (!contrasenaValida) {
+      return res.status(401).json({ error: 'Correo o contraseña incorrectos' });
+    }
 
     const { subtipo, cargo } = await detectarSubtipo(miembro.ci);
 
-    // Determinar rol JWT segun subtipo y cargo
     let rol = 'miembro';
     if (subtipo === 'PersonalAdministrativo') {
       if (cargo && cargo.toLowerCase().includes('director')) rol = 'director';
@@ -122,39 +136,30 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/* ============================================================
-   POST /api/auth/register
-   HU-01: registrar datos personales del miembro.
-   Columnas reales de Miembro (NO tiene 'direccion' ni 'telefono'):
-     direccion → calle1 + estado + residencia
-     telefono  → num_personal
-   TODO (pendiente Marlene):
-     Opcion A — DCL: CREATE USER "$CI" WITH PASSWORD $1; GRANT rol_operador TO "$CI";
-     Opcion B — columna contrasena: agregar hash al INSERT
-============================================================ */
 router.post('/register', async (req, res) => {
   const {
     CI, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
     fecha_nacimiento, sexo,
-    calle1, estado, residencia,  // direccion dividida en 3 campos
-    num_personal,                // telefono
-    correo
-    // TODO: agregar 'contrasena' cuando Marlene confirme
+    calle1, estado, residencia,
+    num_personal,
+    correo,
+    contrasena
   } = req.body;
 
-  if (!CI || !primer_nombre || !primer_apellido || !correo ||
+  if (!CI || !primer_nombre || !primer_apellido || !correo || !contrasena ||
       !fecha_nacimiento || !sexo || !calle1 || !estado || !residencia || !num_personal) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
 
-  // RN-02: correo institucional
   if (!correo.includes('@ucab')) {
     return res.status(400).json({ error: 'El correo debe pertenecer al dominio institucional @ucab' });
   }
 
-  try {
-    // TODO Opcion B: const hash = await bcrypt.hash(contrasena, 10);
+  if (contrasena.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
 
+  try {
     const result = await pool.query(
       `INSERT INTO Miembro
         (ci, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
@@ -167,6 +172,11 @@ router.post('/register', async (req, res) => {
        calle1, estado, residencia, num_personal, correo]
     );
 
+    const safeCI       = CI.replace(/"/g, '');
+    const safePassword = contrasena.replace(/'/g, "''");
+    await pool.query(`CREATE USER "${safeCI}" WITH PASSWORD '${safePassword}'`);
+    await pool.query(`GRANT rol_operador TO "${safeCI}"`);
+
     res.status(201).json({
       mensaje: 'Miembro registrado exitosamente',
       miembro: result.rows[0]
@@ -177,7 +187,46 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'La cédula o correo ya está registrado' });
     }
     console.error('Error en register:', err);
-    res.status(500).json({ error: err.detail || 'Error interno del servidor' });
+    res.status(500).json({ error: err.detail || err.message || 'Error interno del servidor' });
+  }
+});
+
+router.patch('/cambiar-password', auth, async (req, res) => {
+  const { contrasena_actual, contrasena_nueva } = req.body;
+  const ci = req.usuario.CI;
+
+  if (!contrasena_actual || !contrasena_nueva) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios.' });
+  }
+
+  if (contrasena_nueva.length < 6) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  const clientDCL = new Client({
+    host:     process.env.DB_HOST,
+    port:     process.env.DB_PORT,
+    database: process.env.DB_NAME,
+    user:     ci,
+    password: contrasena_actual
+  });
+
+  try {
+    await clientDCL.connect();
+    await clientDCL.end();
+  } catch {
+    return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+  }
+
+  try {
+    const safeCI       = ci.replace(/"/g, '');
+    const safePassword = contrasena_nueva.replace(/'/g, "''");
+    await pool.query(`ALTER USER "${safeCI}" WITH PASSWORD '${safePassword}'`);
+    await pool.query(`UPDATE Miembro SET ult_fecha_cambio = NOW() WHERE ci = $1`, [ci]);
+    res.json({ mensaje: 'Contraseña actualizada correctamente.' });
+  } catch (err) {
+    console.error('Error cambiar-password:', err);
+    res.status(500).json({ error: 'Error interno del servidor.' });
   }
 });
 

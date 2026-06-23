@@ -113,6 +113,10 @@ function renderTabla() {
             <button class="btn-icon warning" title="Cambiar estado" onclick="abrirCambiarEstado('${m.ci}','${nombre}','${m.estado_de_cuenta}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
             </button>
+            <!-- Reset contraseña -->
+            <button class="btn-icon" title="Resetear contraseña" onclick="resetPassword('${m.ci}','${nombre}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </button>
             <!-- Eliminar (HU-06) -->
             <button class="btn-icon danger" title="Eliminar miembro" onclick="abrirEliminar('${m.ci}','${nombre}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -264,3 +268,17 @@ async function verSesiones(ci, nombre) {
 
 // ── Inicializar ───────────────────────────────────────────
 cargarMiembros();
+
+async function resetPassword(ci, nombre) {
+  const nueva = prompt(`Nueva contraseña para ${nombre}:`);
+  if (!nueva || nueva.length < 6) {
+    alert('La contraseña debe tener al menos 6 caracteres.');
+    return;
+  }
+  try {
+    await api.patch(`/miembros/${ci}/reset-password`, { contrasena_nueva: nueva });
+    toast('Contraseña reseteada correctamente.');
+  } catch (err) {
+    toast(err.message || 'Error al resetear.', 'error');
+  }
+}

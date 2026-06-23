@@ -12,7 +12,6 @@
   <div class="page">
     <div class="card card--wide">
 
-      <!-- Cabecera (mismo estilo que login) -->
       <div class="card__header">
         <div class="card__logo">UC</div>
         <div>
@@ -80,7 +79,7 @@
           </div>
 
           <!-- SECCIÓN 3: Contacto -->
-          <p class="form__section">Contacto</p>
+          <p class="form__section">Contacto y Acceso</p>
           <div class="grid-2">
             <div class="field field--full">
               <label class="field__label" for="correo">Correo Institucional <span class="required">*</span></label>
@@ -93,6 +92,12 @@
               <input class="field__input" type="tel" id="num_personal" name="num_personal"
                      placeholder="04141234567" autocomplete="tel" />
               <span class="field__error" id="error-num_personal"></span>
+            </div>
+            <div class="field field--full">
+              <label class="field__label" for="contrasena">Contraseña <span class="required">*</span></label>
+              <input class="field__input" type="password" id="contrasena" name="contrasena"
+                     placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+              <span class="field__error" id="error-contrasena"></span>
             </div>
           </div>
 
@@ -144,7 +149,6 @@
             </div>
           </div>
 
-          <!-- Error general del servidor -->
           <div class="alert alert--error" id="alert-general" role="alert" aria-live="polite"></div>
           <div class="alert alert--success" id="alert-success" role="alert" aria-live="polite"></div>
 

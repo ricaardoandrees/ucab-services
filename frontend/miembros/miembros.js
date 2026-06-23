@@ -1,17 +1,6 @@
-/* ============================================================
-   miembros.js — lógica de la pantalla Mi Perfil y Seguridad
-   Endpoints usados:
-     GET   /api/miembros/:ci          → cargar ficha (HU-04)
-     PATCH /api/miembros/:ci/contacto → guardar cambios (HU-05)
-     GET   /api/miembros/:ci/ult-cambio → fecha cambio contraseña (HU-08)
-     GET   /api/vinculaciones/:ci     → historial (HU-15) — pendiente backend
-============================================================ */
-
 const usuario = window.usuarioActual;
 const CI      = usuario?.CI;
 
-
-/* ── Helpers ─────────────────────────────────────────────────*/
 function mostrarToast(mensaje, tipo = 'success') {
   const toast = document.getElementById('toast');
   toast.textContent = mensaje;
@@ -38,32 +27,25 @@ function setLoading(estado) {
   btn.classList.toggle('loading', estado);
 }
 
-/* ── Cargar perfil ──────────────────────────────────────────*/
 async function cargarPerfil() {
   try {
-    console.log('CI del usuario:', CI);              // ← agrega esta
     const m = await api.get(`/miembros/${CI}`);
-    console.log('Datos recibidos:', m);              // ← y esta
 
-    // Campos de solo lectura
     document.getElementById('ci').value              = m.ci;
     document.getElementById('fecha_nacimiento').value = formatearFecha(m.fecha_nacimiento);
     document.getElementById('correo').value           = m.correo;
 
     const nombreCompleto = [m.primer_nombre, m.segundo_nombre, m.primer_apellido, m.segundo_apellido]
       .filter(Boolean).join(' ');
-    document.getElementById('nombre').value       = nombreCompleto;
+    document.getElementById('nombre').value                = nombreCompleto;
     document.getElementById('nombre-completo').textContent = nombreCompleto;
-    document.getElementById('avatar').textContent = iniciales(nombreCompleto);
+    document.getElementById('avatar').textContent          = iniciales(nombreCompleto);
+    document.getElementById('subtipo-label').textContent   = usuario.subtipo || '';
 
-    // Subtipo desde el JWT
-    document.getElementById('subtipo-label').textContent = usuario.subtipo || '';
-
-    // Campos editables
     document.getElementById('num_personal').value     = m.num_personal || '';
-    document.getElementById('calle1').value            = m.calle1       || '';
-    document.getElementById('residencia').value        = m.residencia   || '';
-    document.getElementById('estado_residencia').value = m.estado       || '';
+    document.getElementById('calle1').value           = m.calle1       || '';
+    document.getElementById('residencia').value       = m.residencia   || '';
+    document.getElementById('estado_residencia').value = m.estado      || '';
 
   } catch (err) {
     mostrarToast('Error al cargar el perfil.', 'error');
@@ -71,7 +53,6 @@ async function cargarPerfil() {
   }
 }
 
-/* ── Cargar última fecha cambio de contraseña ───────────────*/
 async function cargarUltCambio() {
   try {
     const data = await api.get(`/miembros/${CI}/ult-cambio`);
@@ -84,7 +65,6 @@ async function cargarUltCambio() {
   }
 }
 
-/* ── Cargar historial de vinculaciones ──────────────────────*/
 async function cargarVinculaciones() {
   const contenedor = document.getElementById('vinculaciones-list');
   try {
@@ -96,23 +76,21 @@ async function cargarVinculaciones() {
     }
 
     contenedor.innerHTML = lista.map(v => {
-      const activo  = !v.fecha_fin;
-      const badge   = activo
+      const activo = !v.fecha_fin;
+      const badge  = activo
         ? '<span class="badge badge--activo">Activo</span>'
         : '<span class="badge badge--inactivo">Inactivo</span>';
-      const fecha   = formatearFecha(v.fecha_inicio);
       return `
         <div class="vinc-item">
           <div>
             <p class="vinc-subtipo">${v.subtipo || 'Miembro'}</p>
-            <p class="vinc-fecha">${fecha}</p>
+            <p class="vinc-fecha">${formatearFecha(v.fecha_inicio)}</p>
           </div>
           ${badge}
         </div>`;
     }).join('');
 
   } catch {
-    // El endpoint de vinculaciones aún no está listo — mostrar placeholder
     contenedor.innerHTML = `
       <div class="vinc-item">
         <div><p class="vinc-subtipo">${usuario.subtipo || 'Miembro'}</p><p class="vinc-fecha">Período actual</p></div>
@@ -121,7 +99,6 @@ async function cargarVinculaciones() {
   }
 }
 
-/* ── Guardar cambios (contacto) ─────────────────────────────*/
 document.getElementById('form-perfil').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -150,7 +127,73 @@ document.getElementById('form-perfil').addEventListener('submit', async (e) => {
   }
 });
 
-/* ── Inicializar ────────────────────────────────────────────*/
+// Modal contraseña — event listeners en vez de onclick
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('.link-cambiar-pass').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('pass-actual').value   = '';
+    document.getElementById('pass-nueva').value    = '';
+    document.getElementById('pass-confirmar').value = '';
+    document.getElementById('alert-pass').style.display = 'none';
+    document.getElementById('modal-password').style.display = 'flex';
+  });
+
+  document.getElementById('btn-cerrar-modal').addEventListener('click', () => {
+    document.getElementById('modal-password').style.display = 'none';
+  });
+
+  document.getElementById('btn-cancelar-modal').addEventListener('click', () => {
+    document.getElementById('modal-password').style.display = 'none';
+  });
+
+  document.getElementById('btn-guardar-pass').addEventListener('click', async () => {
+    const actual    = document.getElementById('pass-actual').value;
+    const nueva     = document.getElementById('pass-nueva').value;
+    const confirmar = document.getElementById('pass-confirmar').value;
+    const alertEl   = document.getElementById('alert-pass');
+
+    alertEl.style.display = 'none';
+
+    if (!actual || !nueva || !confirmar) {
+      alertEl.textContent = 'Completa todos los campos.';
+      alertEl.style.display = 'block';
+      return;
+    }
+    if (nueva.length < 6) {
+      alertEl.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.';
+      alertEl.style.display = 'block';
+      return;
+    }
+    if (nueva !== confirmar) {
+      alertEl.textContent = 'Las contraseñas no coinciden.';
+      alertEl.style.display = 'block';
+      return;
+    }
+
+    const token    = localStorage.getItem('token');
+    const response = await fetch('http://localhost:3000/api/auth/cambiar-password', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body:    JSON.stringify({ contrasena_actual: actual, contrasena_nueva: nueva })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alertEl.textContent = data.error || 'Error al cambiar contraseña.';
+      alertEl.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('modal-password').style.display = 'none';
+    mostrarToast('Contraseña actualizada. Vuelve a iniciar sesión.', 'success');
+    setTimeout(() => {
+      localStorage.clear();
+      window.location.href = '../login/login.html';
+    }, 2000);
+  });
+});
+
 cargarPerfil();
 cargarUltCambio();
 cargarVinculaciones();

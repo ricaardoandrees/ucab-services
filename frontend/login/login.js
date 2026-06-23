@@ -16,7 +16,12 @@ const alertGeneral  = document.getElementById('alert-general');
 const btnSubmit     = document.getElementById('btn-submit');
 const togglePass    = document.getElementById('toggle-pass');
 
-// Mostrar/ocultar contraseña 
+document.querySelector('.link-forgot').addEventListener('click', (e) => {
+  e.preventDefault();
+  alert('Contacta al administrador para restablecer tu contraseña.');
+});
+
+// Mostrar/ocultar contraseña
 togglePass.addEventListener('click', () => {
   const esPassword = inputPass.type === 'password';
   inputPass.type = esPassword ? 'text' : 'password';

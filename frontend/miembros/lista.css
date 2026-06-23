@@ -1,6 +1,13 @@
 /* ============================================================
    lista.css — Consola de Control de Usuarios (admin)
 ============================================================ */
+
+body {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+}
+
 :root {
   --navy:      #1C3D6E;
   --navy-dark: #162F56;

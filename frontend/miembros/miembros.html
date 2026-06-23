@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mi Perfil — UCAB Services</title>
-  <!-- Scripts compartidos en HEAD para que siempre carguen primero -->
   <script src="../js/auth-guard.js"></script>
   <script src="../js/api.js"></script>
   <link rel="stylesheet" href="miembros.css" />
@@ -98,7 +97,7 @@
           <div class="security-row__info">
             <p class="security-row__title">Última actualización de contraseña</p>
             <p class="security-row__sub" id="ult-cambio">Cargando...</p>
-            <a href="#" class="link-action">Cambiar Contraseña</a>
+            <a href="#" class="link-action link-cambiar-pass">Cambiar Contraseña</a>
           </div>
         </div>
       </div>
@@ -114,7 +113,34 @@
 
   </div>
 
-  <!-- sidebar y JS de página al final del body -->
+  <div class="modal-backdrop" id="modal-password" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Cambiar Contraseña</h3>
+        <button id="btn-cerrar-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field__label">Contraseña actual</label>
+          <input class="field__input" type="password" id="pass-actual" />
+        </div>
+        <div class="field">
+          <label class="field__label">Nueva contraseña</label>
+          <input class="field__input" type="password" id="pass-nueva" />
+        </div>
+        <div class="field">
+          <label class="field__label">Confirmar nueva contraseña</label>
+          <input class="field__input" type="password" id="pass-confirmar" />
+        </div>
+        <div class="alert alert--error" id="alert-pass" style="display:none"></div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:0.5px solid var(--border)">
+        <button class="btn-ghost" id="btn-cancelar-modal">Cancelar</button>
+        <button class="btn-primary" style="width:auto;padding:10px 20px" id="btn-guardar-pass">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/sidebar.js"></script>
   <script src="miembros.js"></script>
 </body>
