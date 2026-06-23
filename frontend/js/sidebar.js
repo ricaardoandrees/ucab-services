@@ -16,6 +16,9 @@
 
 (function () {
 
+  const usuario = window.usuarioActual || null;
+  const esAdmin = usuario?.rol === 'admin' || usuario?.cargo?.toLowerCase().includes('director');
+
   const ICONS = {
     home:       `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
     user:       `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -34,7 +37,7 @@
   };
 
   const NAV_ITEMS = [
-    { label: 'Mi Perfil',        icon: 'user',      path: '../miembros/miembros.html',               roles: [] },
+    { label: esAdmin ? 'Usuarios' : 'Mi Perfil', icon: 'user', path: esAdmin ? '../miembros/lista.html' : '../miembros/miembros.html', roles: [] },
     { label: 'Vinculaciones',    icon: 'link',      path: '../vinculaciones/vinculaciones.html',     roles: [] },
     { label: 'Beneficiarios',    icon: 'users',     path: '../beneficiarios/beneficiarios.html',     roles: ['admin','director','miembro'] },
     { label: 'Infraestructura',  icon: 'building',  path: '../infraestructura/infraestructura.html', roles: ['admin','director'] },
@@ -94,7 +97,6 @@
   document.head.appendChild(style);
 
   /* ── Crear sidebar ────────────────────────────────────────── */
-  const usuario = window.usuarioActual || null;
   const items   = itemsVisibles(usuario);
 
   const sidebar = document.createElement('aside');
