@@ -117,6 +117,7 @@ const CAMPOS = {
     </div>
     <div class="field"><label class="field__label">Facultad</label><input class="field__input" id="f-facultad" type="text" /></div>`,
   becario: `
+    <p style="font-size:12px;color:#B45309;background:#FFFBEB;padding:8px 10px;border-radius:6px;margin-bottom:12px">⚠️ El miembro debe tener rol Estudiante asignado previamente.</p>
     <div class="grid-2">
       <div class="field"><label class="field__label">Tipo de beca</label>
         <select class="field__input" id="f-tipo-beca">
@@ -133,6 +134,7 @@ const CAMPOS = {
       </div>
     </div>`,
   preparador: `
+    <p style="font-size:12px;color:#B45309;background:#FFFBEB;padding:8px 10px;border-radius:6px;margin-bottom:12px">⚠️ El miembro debe tener rol Estudiante asignado previamente.</p>
     <div class="grid-2">
       <div class="field"><label class="field__label">Asignatura</label><input class="field__input" id="f-asignatura" type="text" /></div>
       <div class="field"><label class="field__label">Horas de ayudantía</label><input class="field__input" id="f-horas" type="number" /></div>
@@ -153,7 +155,7 @@ const CAMPOS = {
     <div class="grid-2">
       <div class="field"><label class="field__label">Título</label><input class="field__input" id="f-titulo" type="text" /></div>
       <div class="field"><label class="field__label">Año de graduación</label><input class="field__input" id="f-ano" type="number" /></div>
-      <div class="field"><label class="field__label">Índice final</label><input class="field__input" id="f-indice" type="number" step="0.01" /></div>
+      <div class="field"><label class="field__label">Índice final</label><input class="field__input" id="f-indice" type="number" step="0.01" min="0" max="20" /></div>
     </div>`,
 };
 
@@ -180,13 +182,23 @@ document.getElementById('tbody').addEventListener('click', async (e) => {
     if (!miembro.especializaciones || miembro.especializaciones.length === 0) {
       lista.innerHTML = '<p style="color:var(--muted);font-size:13px">Este miembro no tiene roles asignados.</p>';
     } else {
-      lista.innerHTML = miembro.especializaciones.map(e => `
+      lista.innerHTML = miembro.especializaciones.map(e => {
+        const tipoEndpoint = {
+          'Becario': 'becario', 'Preparador': 'preparador', 'Estudiante': 'estudiante',
+          'Profesor': 'profesor', 'PersonalAdministrativo': 'personaladmin', 'Egresado': 'egresado'
+        }[e.subtipo] || e.subtipo.toLowerCase();
+        return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid var(--border)">
           <span style="font-weight:500;color:var(--text)">${e.subtipo}</span>
-          <button class="btn-icon danger" data-quitar="${e.subtipo.toLowerCase().replace('personaladministrativo','personaladmin')}" title="Quitar rol">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-          </button>
-        </div>`).join('');
+          <div style="display:flex;gap:6px">
+            <button class="btn-icon" data-editar="${tipoEndpoint}" data-datos='${JSON.stringify(e.datos)}' title="Editar datos">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon danger" data-quitar="${tipoEndpoint}" title="Quitar rol">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            </button>
+          </div>
+        </div>`}).join('');
     }
 
     // También mostrar opción de cerrar período si está activo
@@ -202,11 +214,11 @@ document.getElementById('tbody').addEventListener('click', async (e) => {
   }
 });
 
-// Quitar rol desde modal de gestión
+// Quitar o editar rol desde modal de gestión
 document.getElementById('lista-roles-actuales').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-quitar]');
-  if (btn) {
-    const tipo = btn.dataset.quitar;
+  const btnQuitar = e.target.closest('[data-quitar]');
+  if (btnQuitar) {
+    const tipo = btnQuitar.dataset.quitar;
     if (!confirm(`¿Quitar el rol ${tipo} de este miembro?`)) return;
     try {
       await api.delete(`/vinculaciones/${ciActivo}/rol/${tipo}`);
@@ -214,6 +226,44 @@ document.getElementById('lista-roles-actuales').addEventListener('click', async 
       document.getElementById('modal-roles').style.display = 'none';
       await cargarDatos();
     } catch (err) { toast(err.message, 'error'); }
+  }
+
+  const btnEditar = e.target.closest('[data-editar]');
+  if (btnEditar) {
+    const tipo  = btnEditar.dataset.editar;
+    const datos = JSON.parse(btnEditar.dataset.datos || '{}');
+    document.getElementById('modal-roles').style.display = 'none';
+    document.getElementById('modal-anadir-nombre').textContent = nombreActivo;
+    document.getElementById('select-subtipo').value = tipo;
+    document.getElementById('campos-subtipo').innerHTML = CAMPOS[tipo] || '';
+    setTimeout(() => {
+      if (tipo === 'estudiante') {
+        document.getElementById('f-promedio').value  = datos.promedio_ponderado || '';
+        document.getElementById('f-semestre').value  = datos.semestre_actual    || '';
+        document.getElementById('f-uc').value        = datos.uc_aprobadas       || '';
+        document.getElementById('f-escuela').value   = datos.escuela            || '';
+        document.getElementById('f-facultad').value  = datos.facultad           || '';
+      } else if (tipo === 'becario') {
+        document.getElementById('f-tipo-beca').value = datos.tipo_beca          || '';
+        document.getElementById('f-estatus').value   = datos.estatus_beneficio  || '';
+      } else if (tipo === 'preparador') {
+        document.getElementById('f-asignatura').value = datos.asignatura        || '';
+        document.getElementById('f-horas').value       = datos.horas            || '';
+      } else if (tipo === 'profesor') {
+        document.getElementById('f-carga').value    = datos.carga_horaria       || '';
+        document.getElementById('f-escalafon').value = datos.escalafon          || '';
+        document.getElementById('f-codinv').value   = datos.cod_investigador    || '';
+      } else if (tipo === 'personaladmin') {
+        document.getElementById('f-cargo').value        = datos.cargo                      || '';
+        document.getElementById('f-carga-semanal').value = datos.carga_semanal             || '';
+        document.getElementById('f-adscripcion').value  = datos.adscripcion_presupuestaria || '';
+      } else if (tipo === 'egresado') {
+        document.getElementById('f-titulo').value = datos.titulo           || '';
+        document.getElementById('f-ano').value    = datos.ano_graduacion   || '';
+        document.getElementById('f-indice').value = datos.indice_final     || '';
+      }
+    }, 50);
+    document.getElementById('modal-anadir').style.display = 'flex';
   }
 
   if (e.target.id === 'btn-cerrar-periodo') {
@@ -253,9 +303,7 @@ document.getElementById('btn-confirmar-anadir').addEventListener('click', async 
   }
 
   try {
-    // Guardar datos del rol
     await api.put(`/vinculaciones/${ciActivo}/${tipo}`, body);
-    // Abrir período con el rol si no tiene uno activo
     const miembro = todos.find(m => m.ci === ciActivo);
     if (!miembro.periodoActivo) {
       const rolLabel = {

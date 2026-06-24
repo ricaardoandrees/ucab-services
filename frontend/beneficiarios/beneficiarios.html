@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beneficiarios — UCAB Services</title>
+  <script>
+    const ROLES_PERMITIDOS    = ['admin', 'director'];
+    const SUBTIPOS_PERMITIDOS = ['Profesor', 'PersonalAdministrativo'];
+  </script>
+  <script src="../js/auth-guard.js"></script>
+  <script src="../js/api.js"></script>
+  <link rel="stylesheet" href="beneficiarios.css" />
+</head>
+<body>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-header__title">Gestión de Beneficiarios</h1>
+      <p class="page-header__sub">Administra las cargas familiares y sus coberturas</p>
+    </div>
+    <button class="btn-amber" id="btn-nuevo">+ Registrar Beneficiario</button>
+  </div>
+
+  <div class="tabs" id="tabs-admin" style="display:none">
+    <button class="tab active" data-tab="mis">Mis Beneficiarios</button>
+    <button class="tab" data-tab="todos">Gestión General</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="buscador" type="text" placeholder="Buscar por nombre o CI..." />
+    </div>
+    <select class="filter-select" id="filtro-estado">
+      <option value="">Todos los estados</option>
+      <option value="Habilitado">Habilitado</option>
+      <option value="Inhabilitado">Inhabilitado</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <div id="skeleton">
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+    </div>
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>CI</th>
+          <th>Nombre</th>
+          <th id="th-miembro" style="display:none">Miembro</th>
+          <th>Parentesco</th>
+          <th>Tipo</th>
+          <th>F. Nacimiento</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Modal: Registrar beneficiario -->
+  <div class="modal-backdrop" id="modal-nuevo" style="display:none">
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h3 class="modal__title">Registrar Beneficiario</h3>
+        <button class="modal__close" id="btn-cerrar-nuevo">✕</button>
+      </div>
+      <div class="modal__body">
+        <div class="grid-2">
+          <div class="field"><label class="field__label">Cédula del Beneficiario</label><input class="field__input" type="text" id="b-ci" placeholder="V-12345678" /></div>
+          <div class="field"><label class="field__label">Nombre Completo</label><input class="field__input" type="text" id="b-nombre" /></div>
+          <div class="field">
+            <label class="field__label">Parentesco</label>
+            <select class="field__input" id="b-parentesco">
+              <option value="">Seleccionar...</option>
+              <option>Cónyuge</option><option>Hijo/a</option><option>Padre</option><option>Madre</option><option>Hermano/a</option>
+            </select>
+          </div>
+          <div class="field"><label class="field__label">Fecha de Nacimiento</label><input class="field__input" type="date" id="b-fecha" /></div>
+          <div class="field field--full">
+            <label class="field__label">Tipo de Carga</label>
+            <select class="field__input" id="b-tipo">
+              <option value="">Seleccionar...</option>
+              <option value="menor">Carga Menor (menor de edad)</option>
+              <option value="mayor">Carga Mayor (universitario/dependiente)</option>
+            </select>
+          </div>
+        </div>
+        <div id="campos-menor" style="display:none">
+          <p class="form__section">Datos de Carga Menor</p>
+          <div class="grid-2">
+            <div class="field"><label class="field__label">Centro de educación inicial</label><input class="field__input" type="text" id="b-centro" /></div>
+            <div class="field"><label class="field__label">Esquema de vacunación</label><input class="field__input" type="text" id="b-vacunacion" placeholder="Completo / Incompleto" /></div>
+          </div>
+        </div>
+        <div id="campos-mayor" style="display:none">
+          <p class="form__section">Datos de Carga Mayor</p>
+          <div class="grid-2">
+            <div class="field"><label class="field__label">Constancia de estudios</label><input class="field__input" type="text" id="b-constancia" placeholder="Número o referencia" /></div>
+            <div class="field"><label class="field__label">Certificado de soltería</label><input class="field__input" type="text" id="b-solteria" placeholder="Número o referencia" /></div>
+          </div>
+        </div>
+        <div class="alert alert--error" id="alert-nuevo" style="display:none"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn-ghost" id="btn-cancelar-nuevo">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar-nuevo">Registrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Actualizar constancias CargaMayor -->
+  <div class="modal-backdrop" id="modal-constancias" style="display:none">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Actualizar Constancias</h3>
+        <button class="modal__close" id="btn-cerrar-constancias">✕</button>
+      </div>
+      <div class="modal__body">
+        <div class="field"><label class="field__label">Constancia de estudios universitarios</label><input class="field__input" type="text" id="c-constancia" /></div>
+        <div class="field"><label class="field__label">Certificado de soltería</label><input class="field__input" type="text" id="c-solteria" /></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn-ghost" id="btn-cancelar-constancias">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar-constancias">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Inhabilitar -->
+  <div class="modal-backdrop" id="modal-inhabilitar" style="display:none">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title" style="color:#D93025">Inhabilitar Vínculo</h3>
+        <button class="modal__close" id="btn-cerrar-inhab">✕</button>
+      </div>
+      <div class="modal__body">
+        <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Beneficiario: <strong id="inhab-nombre"></strong></p>
+        <div class="field"><label class="field__label">Fecha de finalización del vínculo</label><input class="field__input" type="date" id="inhab-fecha" /></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn-ghost" id="btn-cancelar-inhab">Cancelar</button>
+        <button class="btn-danger" id="btn-confirmar-inhab">Inhabilitar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Carga Menor -->
+  <div class="modal-backdrop" id="modal-menor" style="display:none">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Editar Carga Menor</h3>
+        <button class="modal__close" id="btn-cerrar-menor">✕</button>
+      </div>
+      <div class="modal__body">
+        <div class="field"><label class="field__label">Centro de educación inicial</label><input class="field__input" type="text" id="m-centro" /></div>
+        <div class="field"><label class="field__label">Esquema de vacunación</label><input class="field__input" type="text" id="m-vacunacion" placeholder="Completo / Incompleto" /></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn-ghost" id="btn-cancelar-menor">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar-menor">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="../js/sidebar.js"></script>
+  <script src="beneficiarios.js"></script>
+</body>
+</html>

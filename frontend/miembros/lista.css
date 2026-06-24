@@ -1,13 +1,6 @@
 /* ============================================================
    lista.css — Consola de Control de Usuarios (admin)
 ============================================================ */
-
-body {
-  display: flex;
-  min-height: 100vh;
-  margin: 0;
-}
-
 :root {
   --navy:      #1C3D6E;
   --navy-dark: #162F56;
@@ -302,3 +295,10 @@ body {
 
 /* ── Vacío ───────────────────────────────────────────────── */
 .empty { text-align: center; padding: 48px 16px; color: var(--muted); font-size: 14px; }
+
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.rol-field { margin-bottom: 12px; }
+.rol-field label { display: block; font-size: 12px; font-weight: 500; color: var(--label); margin-bottom: 5px; }
+.rol-field input, .rol-field select { width: 100%; background: #F5F6FA; border: 1px solid var(--border); border-radius: 7px; padding: 10px 13px; font-size: 14px; color: var(--text); outline: none; font-family: inherit; }
+.rol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }

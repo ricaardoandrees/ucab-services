@@ -7,7 +7,7 @@
       GET    /api/vehiculos/miembro/:ci→ HU-92 Admin consulta
     ============================================================ */
 
-const API = 'http://localhost:3000/api';
+const API = 'http://localhost:3001/api';
 
 // ── Sesión ───────────────────────────────────────────────
 const token  = localStorage.getItem('token');
@@ -266,5 +266,3 @@ function toast(msg, tipo = 'success') {
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
-
-

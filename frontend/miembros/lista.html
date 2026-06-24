@@ -101,6 +101,49 @@
     </div>
   </div>
 
+  <!-- ── Modal: Editar Miembro Completo ── -->
+  <div class="modal-backdrop" id="modal-editar" style="display:none">
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h3 class="modal__title">Editar Miembro — <span id="modal-editar-nombre"></span></h3>
+        <button class="modal__close" onclick="cerrarModal('modal-editar')">✕</button>
+      </div>
+      <div class="modal__body">
+        <!-- Info básica -->
+        <p class="section-label">Información Personal</p>
+        <div class="edit-grid">
+          <div class="field"><label class="field__label">Primer Nombre</label><input class="field__input" id="e-primer_nombre" type="text" /></div>
+          <div class="field"><label class="field__label">Segundo Nombre</label><input class="field__input" id="e-segundo_nombre" type="text" /></div>
+          <div class="field"><label class="field__label">Primer Apellido</label><input class="field__input" id="e-primer_apellido" type="text" /></div>
+          <div class="field"><label class="field__label">Segundo Apellido</label><input class="field__input" id="e-segundo_apellido" type="text" /></div>
+          <div class="field"><label class="field__label">Fecha Nacimiento</label><input class="field__input" id="e-fecha_nacimiento" type="date" /></div>
+          <div class="field"><label class="field__label">Sexo</label>
+            <select class="field__input" id="e-sexo">
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+            </select>
+          </div>
+          <div class="field"><label class="field__label">Teléfono</label><input class="field__input" id="e-num_personal" type="tel" /></div>
+          <div class="field"><label class="field__label">Calle / Avenida</label><input class="field__input" id="e-calle1" type="text" /></div>
+          <div class="field"><label class="field__label">Ciudad</label><input class="field__input" id="e-residencia" type="text" /></div>
+          <div class="field"><label class="field__label">Estado</label><input class="field__input" id="e-estado" type="text" /></div>
+        </div>
+
+        <!-- Datos del rol -->
+        <p class="section-label" style="margin-top:20px">Datos del Rol</p>
+        <div id="editar-rol-contenido">
+          <p style="color:var(--muted);font-size:13px">Cargando datos del rol...</p>
+        </div>
+
+        <div class="alert alert--error" id="alert-editar" style="display:none"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn-ghost" onclick="cerrarModal('modal-editar')">Cancelar</button>
+        <button class="btn-primary" id="btn-confirmar-editar">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Modal: Confirmar Eliminar ── -->
   <div class="modal-backdrop" id="modal-eliminar" style="display:none">
     <div class="modal">

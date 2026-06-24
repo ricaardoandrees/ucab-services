@@ -4,14 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>UCAB Services — Voluntariado</title>
-  <link rel="stylesheet" href="../css/global.css" />
   <link rel="stylesheet" href="voluntariado.css" />
-  <script src="../js/auth-guard.js"></script>
-  <script src="../js/api.js"></script>
 </head>
 <body>
 
+  <!-- ── TOPBAR ────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <div class="topbar__logo">UC</div>
+      <span class="topbar__name">UCAB Services</span>
+    </div>
+    <div class="topbar__user">
+      <span class="topbar__greeting" id="greeting">Cargando...</span>
+      <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
+    </div>
+  </header>
 
+  <!-- ── PÁGINA ─────────────────────────────────────────── -->
+  <main class="page">
 
     <div class="page-header">
       <div>
@@ -42,6 +52,7 @@
       </div>
     </div>
 
+  </main>
 
   <!-- ── MODAL: Crear / Editar voluntariado ─────────────── -->
   <div class="modal-backdrop" id="modal-form" role="dialog"
@@ -143,8 +154,6 @@
   <!-- ── TOASTS ─────────────────────────────────────────── -->
   <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
 
-  <script src="../js/sidebar.js"></script>
   <script src="voluntariado.js"></script>
 </body>
 </html>
-

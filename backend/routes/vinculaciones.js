@@ -233,6 +233,11 @@ router.put('/:ci/becario', auth, autorizar('admin', 'director'), async (req, res
   const { ci } = req.params;
   const { tipo_beca, estatus_beneficio } = req.body;
 
+    const esEstudianteBecario = await pool.query(`SELECT 1 FROM Estudiante WHERE CI = $1`, [ci]);
+    if (esEstudianteBecario.rowCount === 0) {
+      return res.status(400).json({ error: 'El miembro debe ser Estudiante antes de ser Becario.' });
+    }
+
   try {
     const existe = await pool.query(`SELECT 1 FROM Becario WHERE CI = $1`, [ci]);
     if (existe.rowCount === 0) {
@@ -258,6 +263,11 @@ router.put('/:ci/becario', auth, autorizar('admin', 'director'), async (req, res
 router.put('/:ci/preparador', auth, autorizar('admin', 'director'), async (req, res) => {
   const { ci } = req.params;
   const { asignatura, horas } = req.body;
+
+    const esEstudiantePrep = await pool.query(`SELECT 1 FROM Estudiante WHERE CI = $1`, [ci]);
+    if (esEstudiantePrep.rowCount === 0) {
+      return res.status(400).json({ error: 'El miembro debe ser Estudiante antes de ser Preparador.' });
+    }
 
   try {
     const existe = await pool.query(`SELECT 1 FROM Preparador WHERE CI = $1`, [ci]);
@@ -311,9 +321,18 @@ router.put('/:ci/personaladmin', auth, autorizar('admin', 'director'), async (re
          VALUES ($1,$2,$3,$4)`,
         [ci, adscripcion_presupuestaria, cargo, carga_semanal || null]
       );
-      // Otorgar rol_admin_catalogo al nuevo personal administrativo
+      // Otorgar nuevos roles administrativos basados en el cargo
       const safeCI = ci.replace(/"/g, '');
-      await pool.query(`GRANT rol_admin_catalogo TO "${safeCI}"`);
+      const c = cargo.toLowerCase();
+      const roles = [];
+      if (c.includes('finanzas') || c.includes('cajero') || c.includes('pago') || c.includes('director')) roles.push('rol_finanzas');
+      if (c.includes('infraestructura') || c.includes('sede') || c.includes('servicio') || c.includes('director')) roles.push('rol_infraestructura');
+      if (c.includes('rrhh') || c.includes('secretaria') || c.includes('recurso') || c.includes('director')) roles.push('rol_rrhh');
+      if (roles.length === 0) roles.push('rol_rrhh'); // fallback
+
+      for (const r of roles) {
+        await pool.query(`GRANT ${r} TO "${safeCI}"`).catch(() => {});
+      }
     } else {
       await pool.query(
         `UPDATE PersonalAdministrativo SET adscripcion_presupuestaria=$1, cargo=$2, carga_semanal=$3 WHERE CI=$4`,
@@ -374,10 +393,12 @@ router.delete('/:ci/rol/:tipo', auth, autorizar('admin', 'director'), async (req
     const { rowCount } = await pool.query(`DELETE FROM ${tabla} WHERE CI = $1`, [ci]);
     if (rowCount === 0) return res.status(404).json({ error: 'El miembro no tiene ese rol.' });
 
-    // Si era PersonalAdministrativo → revocar rol_admin_catalogo de PostgreSQL
+    // Si era PersonalAdministrativo → revocar roles administrativos de PostgreSQL
     if (tipo.toLowerCase() === 'personaladmin') {
       const safeCI = ci.replace(/"/g, '');
-      await pool.query(`REVOKE rol_admin_catalogo FROM "${safeCI}"`).catch(() => {});
+      await pool.query(`REVOKE rol_rrhh FROM "${safeCI}"`).catch(() => {});
+      await pool.query(`REVOKE rol_finanzas FROM "${safeCI}"`).catch(() => {});
+      await pool.query(`REVOKE rol_infraestructura FROM "${safeCI}"`).catch(() => {});
     }
 
     // Si era Becario o Preparador → eliminar también de Estudiante si no tiene otro motivo

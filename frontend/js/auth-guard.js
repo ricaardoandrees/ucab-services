@@ -24,8 +24,14 @@
     return;
   }
 
-  if (typeof ROLES_PERMITIDOS !== 'undefined' && ROLES_PERMITIDOS.length > 0) {
-    if (!ROLES_PERMITIDOS.includes(usuario.rol)) {
+  const checkRoles = typeof ROLES_PERMITIDOS !== 'undefined' && ROLES_PERMITIDOS.length > 0;
+  const checkSubtipos = typeof SUBTIPOS_PERMITIDOS !== 'undefined' && SUBTIPOS_PERMITIDOS.length > 0;
+
+  if (checkRoles || checkSubtipos) {
+    const rolValido = checkRoles && ROLES_PERMITIDOS.includes(usuario.rol);
+    const subtipoValido = checkSubtipos && SUBTIPOS_PERMITIDOS.includes(usuario.subtipo);
+
+    if (!rolValido && !subtipoValido) {
       window.location.href = '/frontend/login/login.html';
       return;
     }

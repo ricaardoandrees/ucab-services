@@ -2,7 +2,7 @@
    infraestructura.js — HU-37 a HU-47
 ============================================================ */
 
-const API = 'http://localhost:3000/api/infraestructura';
+const API    = 'http://localhost:3001/api/infraestructura';
 const token  = localStorage.getItem('token');
 const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
 
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Mostrar tabs/botones según rol
-  if (isPrivileged) {
+  if (isAdmin) {
     document.getElementById('btn-tab-sedes').style.display = 'inline-block';
     document.getElementById('btn-add-sede').style.display = 'inline-flex';
   }
@@ -125,7 +125,6 @@ async function loadEspacios() {
         <td>${esc(e.nombre_sede)}</td>
         <td>${esc(e.nombre_edif)}</td>
         <td><b>${e.numero}</b></td>
-        <td>${esc(e.nombre || 'General')}</td>
         <td>${e.capacidad_max} personas</td>
         <td>
           <span class="badge ${e.disponibilidad === 'Disponible' ? 'badge--green' : 'badge--red'}">
@@ -172,9 +171,9 @@ async function loadEdificaciones() {
   }
 }
 
-// ── 4. SEDES (Solo Admin/Director) ─────────────────────────────────
+// ── 4. SEDES (Solo Admin) ─────────────────────────────────
 async function loadSedes() {
-  if (!isPrivileged) return;
+  if (!isAdmin) return;
   const tbody = document.getElementById('tbody-sedes');
   tbody.innerHTML = `<tr class="empty-row"><td colspan="3">Cargando...</td></tr>`;
   try {
@@ -360,7 +359,6 @@ async function openModalEspacioEditar(e) {
   
   document.getElementById('inp-esp-cap').value = e.capacidad_max;
   document.getElementById('inp-esp-disp').value = e.disponibilidad;
-  document.getElementById('inp-esp-nombre').value = e.nombre || '';
   
   showAlert('alert-espacio', '');
   abrirModal('modal-espacio');
@@ -369,7 +367,6 @@ async function submitEspacio(e) {
   e.preventDefault();
   const capacidad_max = parseInt(document.getElementById('inp-esp-cap').value, 10);
   const disponibilidad = document.getElementById('inp-esp-disp').value;
-  const nombre = document.getElementById('inp-esp-nombre').value;
   
   try {
     if (modoForm === 'crear') {
@@ -377,14 +374,15 @@ async function submitEspacio(e) {
       const nombre_edif = document.getElementById('inp-esp-edif').value;
       const nombre_sede = document.getElementById('inp-esp-sede').value;
       
-      await apiFetch('POST', '/espacios', { numero, nombre_edif, nombre_sede, capacidad_max, disponibilidad, nombre });
+      // La dirección exacta ya no hace falta mandarla porque el backend la busca solito
+      await apiFetch('POST', '/espacios', { numero, nombre_edif, nombre_sede, capacidad_max, disponibilidad });
       toast('Espacio registrado.');
     } else {
       const numero = parseInt(document.getElementById('inp-esp-numero').value, 10);
       const nombre_edif = document.getElementById('inp-esp-edif').value;
       const nombre_sede = document.getElementById('inp-esp-sede').value;
 
-      await apiFetch('PUT', `/espacios/${editEspNum}/${encodeURIComponent(editEspEdif)}/${encodeURIComponent(editEspSede)}`, { numero, nombre_edif, nombre_sede, capacidad_max, disponibilidad, nombre });
+      await apiFetch('PUT', `/espacios/${editEspNum}/${encodeURIComponent(editEspEdif)}/${encodeURIComponent(editEspSede)}`, { numero, nombre_edif, nombre_sede, capacidad_max, disponibilidad });
       toast('Espacio actualizado.');
     }
     cerrarModal('modal-espacio');
@@ -481,5 +479,3 @@ function toast(msg, tipo = 'success') {
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
-
-

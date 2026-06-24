@@ -9,7 +9,7 @@
    HU-106: Participantes  GET    /api/voluntariado/:nombre/participantes
 ============================================================ */
 
-const API = 'http://localhost:3000/api';
+const API    = 'http://localhost:3001/api';
 const token  = localStorage.getItem('token');
 const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
 
@@ -405,5 +405,3 @@ function toast(msg, tipo = 'success') {
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
-
-

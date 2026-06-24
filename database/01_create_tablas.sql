@@ -349,6 +349,7 @@ CREATE TABLE EspacioFisico (
     nombre_sede VARCHAR(50) NOT NULL,
     capacidad_max INT NOT NULL CHECK (capacidad_max > 0),
     disponibilidad VARCHAR(15) NOT NULL CHECK (disponibilidad IN ('Disponible','No Disponible')),
+    nombre VARCHAR(50) NOT NULL,
 
     CONSTRAINT PK_ESPACIO_FISICO PRIMARY KEY (numero, nombre_edif, direccion_exacta, nombre_sede),
     CONSTRAINT FK_ESPACIO_EDIFICACION FOREIGN KEY (nombre_edif, direccion_exacta, nombre_sede) REFERENCES Edificacion(nombre, direccion_exacta, nombre_sede) ON DELETE CASCADE

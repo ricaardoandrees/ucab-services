@@ -105,6 +105,10 @@ function renderTabla() {
         <td><span class="badge badge--${estado}">${m.estado_de_cuenta}</span></td>
         <td>
           <div class="acciones">
+            <!-- Editar (HU-07) -->
+            <button class="btn-icon" title="Editar miembro" onclick="abrirEditar('${m.ci}','${nombre}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
             <!-- Ver sesiones (HU-10) -->
             <button class="btn-icon" title="Ver sesiones" onclick="verSesiones('${m.ci}','${nombre}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -112,10 +116,6 @@ function renderTabla() {
             <!-- Cambiar estado (HU-09) -->
             <button class="btn-icon warning" title="Cambiar estado" onclick="abrirCambiarEstado('${m.ci}','${nombre}','${m.estado_de_cuenta}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-            </button>
-            <!-- Reset contraseña -->
-            <button class="btn-icon" title="Resetear contraseña" onclick="resetPassword('${m.ci}','${nombre}')">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </button>
             <!-- Eliminar (HU-06) -->
             <button class="btn-icon danger" title="Eliminar miembro" onclick="abrirEliminar('${m.ci}','${nombre}')">
@@ -266,19 +266,135 @@ async function verSesiones(ci, nombre) {
   }
 }
 
-// ── Inicializar ───────────────────────────────────────────
-cargarMiembros();
+// ── HU-07: Editar miembro completo ───────────────────────
+let ciEditActivo   = null;
+let subtipoEditActivo = null;
 
-async function resetPassword(ci, nombre) {
-  const nueva = prompt(`Nueva contraseña para ${nombre}:`);
-  if (!nueva || nueva.length < 6) {
-    alert('La contraseña debe tener al menos 6 caracteres.');
-    return;
-  }
+async function abrirEditar(ci, nombre) {
+  ciEditActivo = ci;
+  document.getElementById('modal-editar-nombre').textContent = nombre;
+  document.getElementById('alert-editar').style.display = 'none';
+
   try {
-    await api.patch(`/miembros/${ci}/reset-password`, { contrasena_nueva: nueva });
-    toast('Contraseña reseteada correctamente.');
+    // Cargar datos básicos
+    const m = await api.get(`/miembros/${ci}`);
+    document.getElementById('e-primer_nombre').value   = m.primer_nombre   || '';
+    document.getElementById('e-segundo_nombre').value  = m.segundo_nombre  || '';
+    document.getElementById('e-primer_apellido').value = m.primer_apellido  || '';
+    document.getElementById('e-segundo_apellido').value= m.segundo_apellido || '';
+    document.getElementById('e-fecha_nacimiento').value= m.fecha_nacimiento ? m.fecha_nacimiento.split('T')[0] : '';
+    document.getElementById('e-sexo').value            = m.sexo            || 'M';
+    document.getElementById('e-num_personal').value    = m.num_personal    || '';
+    document.getElementById('e-calle1').value          = m.calle1          || '';
+    document.getElementById('e-residencia').value      = m.residencia      || '';
+    document.getElementById('e-estado').value          = m.estado          || '';
+
+    // Cargar datos del rol
+    const vinc = await api.get(`/vinculaciones/${ci}`);
+    const { especializaciones } = vinc;
+    const rolContainer = document.getElementById('editar-rol-contenido');
+
+    if (!especializaciones || especializaciones.length === 0) {
+      rolContainer.innerHTML = '<p style="color:var(--muted);font-size:13px">Sin rol asignado.</p>';
+      subtipoEditActivo = null;
+    } else {
+      const e = especializaciones[0];
+      subtipoEditActivo = e.subtipo;
+      const d = e.datos || {};
+      rolContainer.innerHTML = generarCamposRol(e.subtipo, d);
+    }
+
+    abrirModal('modal-editar');
   } catch (err) {
-    toast(err.message || 'Error al resetear.', 'error');
+    toast('Error al cargar datos: ' + err.message, 'error');
   }
 }
+
+function generarCamposRol(subtipo, d) {
+  const f = (label, id, val, type='text') =>
+    `<div class="rol-field"><label>${label}</label><input class="field__input" id="er-${id}" type="${type}" value="${val || ''}" /></div>`;
+
+  if (subtipo === 'Estudiante') return `<div class="rol-grid">
+    ${f('Escuela', 'escuela', d.escuela)} ${f('Facultad', 'facultad', d.facultad)}
+    ${f('Semestre', 'semestre', d.semestre_actual, 'number')} ${f('UC aprobadas', 'uc', d.uc_aprobadas, 'number')}
+    ${f('Promedio (máx 20)', 'promedio', d.promedio_ponderado, 'number')}</div>`;
+
+  if (subtipo === 'Becario') return `<div class="rol-grid">
+    <div class="rol-field"><label>Tipo de beca</label><select class="field__input" id="er-tipo_beca">
+      <option ${d.tipo_beca==='Comedor'?'selected':''}>Comedor</option>
+      <option ${d.tipo_beca==='Excelencia'?'selected':''}>Excelencia</option>
+      <option ${d.tipo_beca==='Ayuda Economica'?'selected':''}>Ayuda Economica</option>
+    </select></div>
+    <div class="rol-field"><label>Estatus</label><select class="field__input" id="er-estatus">
+      <option ${d.estatus_beneficio==='Activo'?'selected':''}>Activo</option>
+      <option ${d.estatus_beneficio==='Inactivo'?'selected':''}>Inactivo</option>
+    </select></div></div>`;
+
+  if (subtipo === 'Preparador') return `<div class="rol-grid">
+    ${f('Asignatura', 'asignatura', d.asignatura)} ${f('Horas', 'horas', d.horas, 'number')}</div>`;
+
+  if (subtipo === 'Profesor') return `<div class="rol-grid">
+    ${f('Escalafón', 'escalafon', d.escalafon)} ${f('Carga horaria', 'carga_horaria', d.carga_horaria, 'number')}
+    ${f('Cód. investigador', 'cod_investigador', d.cod_investigador, 'number')}</div>`;
+
+  if (subtipo === 'PersonalAdministrativo') return `<div class="rol-grid">
+    ${f('Cargo', 'cargo', d.cargo)} ${f('Carga semanal', 'carga_semanal', d.carga_semanal, 'number')}
+    ${f('Adscripción presupuestaria', 'adscripcion', d.adscripcion_presupuestaria)}</div>`;
+
+  if (subtipo === 'Egresado') return `<div class="rol-grid">
+    ${f('Título', 'titulo', d.titulo)} ${f('Año graduación', 'ano_graduacion', d.ano_graduacion, 'number')}
+    ${f('Índice final (máx 20)', 'indice_final', d.indice_final, 'number')}</div>`;
+
+  return '<p style="color:var(--muted);font-size:13px">Sin datos de rol.</p>';
+}
+
+document.getElementById('btn-confirmar-editar').addEventListener('click', async () => {
+  const alertEl = document.getElementById('alert-editar');
+  alertEl.style.display = 'none';
+
+  const bodyBasico = {
+    primer_nombre:   document.getElementById('e-primer_nombre').value.trim(),
+    segundo_nombre:  document.getElementById('e-segundo_nombre').value.trim() || null,
+    primer_apellido: document.getElementById('e-primer_apellido').value.trim(),
+    segundo_apellido:document.getElementById('e-segundo_apellido').value.trim() || null,
+    fecha_nacimiento:document.getElementById('e-fecha_nacimiento').value,
+    sexo:            document.getElementById('e-sexo').value,
+    num_personal:    document.getElementById('e-num_personal').value.trim(),
+    calle1:          document.getElementById('e-calle1').value.trim(),
+    residencia:      document.getElementById('e-residencia').value.trim(),
+    estado:          document.getElementById('e-estado').value.trim(),
+  };
+
+  try {
+    await api.put(`/miembros/${ciEditActivo}`, bodyBasico);
+
+    // Guardar datos del rol si tiene uno
+    if (subtipoEditActivo) {
+      const tipoMap = {
+        'Estudiante':'estudiante','Becario':'becario','Preparador':'preparador',
+        'Profesor':'profesor','PersonalAdministrativo':'personaladmin','Egresado':'egresado'
+      };
+      const tipo = tipoMap[subtipoEditActivo];
+      let bodyRol = {};
+
+      if (tipo==='estudiante') bodyRol = { escuela:document.getElementById('er-escuela').value, facultad:document.getElementById('er-facultad').value, semestre_actual:parseInt(document.getElementById('er-semestre').value), uc_aprobadas:parseInt(document.getElementById('er-uc').value), promedio_ponderado:parseFloat(document.getElementById('er-promedio').value) };
+      else if (tipo==='becario') bodyRol = { tipo_beca:document.getElementById('er-tipo_beca').value, estatus_beneficio:document.getElementById('er-estatus').value };
+      else if (tipo==='preparador') bodyRol = { asignatura:document.getElementById('er-asignatura').value, horas:parseInt(document.getElementById('er-horas').value) };
+      else if (tipo==='profesor') bodyRol = { escalafon:document.getElementById('er-escalafon').value, carga_horaria:parseInt(document.getElementById('er-carga_horaria').value), cod_investigador:document.getElementById('er-cod_investigador').value||null };
+      else if (tipo==='personaladmin') bodyRol = { cargo:document.getElementById('er-cargo').value, carga_semanal:parseInt(document.getElementById('er-carga_semanal').value), adscripcion_presupuestaria:document.getElementById('er-adscripcion').value };
+      else if (tipo==='egresado') bodyRol = { titulo:document.getElementById('er-titulo').value, ano_graduacion:parseInt(document.getElementById('er-ano_graduacion').value), indice_final:parseFloat(document.getElementById('er-indice_final').value) };
+
+      await api.put(`/vinculaciones/${ciEditActivo}/${tipo}`, bodyRol);
+    }
+
+    cerrarModal('modal-editar');
+    toast('Miembro actualizado correctamente.');
+    await cargarMiembros();
+  } catch (err) {
+    alertEl.textContent = err.message || 'Error al guardar.';
+    alertEl.style.display = 'block';
+  }
+});
+
+// ── Inicializar ───────────────────────────────────────────
+cargarMiembros();
