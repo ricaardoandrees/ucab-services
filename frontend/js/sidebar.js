@@ -39,7 +39,7 @@
   const NAV_ITEMS = [
     { label: esAdmin ? 'Usuarios' : 'Mi Perfil', icon: 'user', path: esAdmin ? '../miembros/lista.html' : '../miembros/miembros.html', roles: [] },
     { label: 'Vinculaciones',    icon: 'link',      path: '../vinculaciones/vinculaciones.html',     roles: ['admin','director'] },
-    { label: 'Beneficiarios',    icon: 'users',     path: '../beneficiarios/beneficiarios.html',     roles: [] },
+    { label: 'Beneficiarios',    icon: 'users',     path: '../beneficiarios/beneficiarios.html',     roles: [], subtipos: ['Profesor', 'PersonalAdministrativo'] },
     { label: 'Infraestructura',  icon: 'building',  path: '../infraestructura/infraestructura.html', roles: ['admin','director'] },
     { label: 'Servicios',        icon: 'briefcase', path: '../servicios/servicios.html',             roles: [] },
     { label: 'Solicitudes',      icon: 'file',      path: '../solicitudes/solicitudes.html',         roles: [] },
@@ -57,9 +57,11 @@
 
   function itemsVisibles(usuario) {
     if (!usuario) return NAV_ITEMS;
-    return NAV_ITEMS.filter(item =>
-      item.roles.length === 0 || item.roles.includes(usuario.rol)
-    );
+    return NAV_ITEMS.filter(item => {
+      const rolPermitido = item.roles.length === 0 || item.roles.includes(usuario.rol);
+      const subtipoPermitido = !item.subtipos || item.subtipos.length === 0 || item.subtipos.includes(usuario.subtipo);
+      return rolPermitido && subtipoPermitido;
+    });
   }
 
   function iniciales(usuario) {

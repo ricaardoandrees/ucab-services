@@ -25,7 +25,7 @@ CREATE TABLE Miembro (
 
 CREATE TABLE Egresado (
     CI VARCHAR(15) NOT NULL,
-    indice_final NUMERIC(4,2) NOT NULL,
+    indice_final NUMERIC(4,2) NOT NULL CHECK (indice_final >= 0 AND indice_final <= 20),
     titulo VARCHAR(20) NOT NULL,
     ano_graduacion INT NOT NULL,
 
@@ -35,7 +35,7 @@ CREATE TABLE Egresado (
 
 CREATE TABLE Estudiante (
     CI VARCHAR(15) NOT NULL,
-    promedio_ponderado NUMERIC(4,2) NOT NULL,
+    promedio_ponderado NUMERIC(4,2) NOT NULL CHECK (promedio_ponderado >= 0 AND promedio_ponderado <= 20),
     Escuela VARCHAR(20) NOT NULL,
     semestre_actual INT NOT NULL,
     UC_aprobadas INT NOT NULL,
@@ -76,8 +76,8 @@ CREATE TABLE Profesor (
 
 CREATE TABLE PersonalAdministrativo (
     CI VARCHAR(15) NOT NULL,
-    adscripcion_presupuestaria VARCHAR(25) NOT NULL,
-    cargo VARCHAR(20) NOT NULL,
+    adscripcion_presupuestaria VARCHAR(50) NOT NULL,
+    cargo VARCHAR(50) NOT NULL,
     carga_semanal INT,
 
     CONSTRAINT PK_PERSONALADMINISTRATIVO PRIMARY KEY (CI),
@@ -190,7 +190,7 @@ CREATE TABLE Contactos (
 
 CREATE TABLE OfertaLaboral (
     Fecha_Oferta TIMESTAMP NOT NULL,
-    cargo VARCHAR(20) NOT NULL,
+    cargo VARCHAR(50) NOT NULL,
     RIF VARCHAR(20) NOT NULL,
     responsabilidades VARCHAR(150) NOT NULL,
     perfil_buscado VARCHAR(150) NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE OfertaLaboral (
 CREATE TABLE Postula (
     CI VARCHAR(15) NOT NULL,
     Fecha_Oferta TIMESTAMP NOT NULL,
-    cargo VARCHAR(20) NOT NULL,
+    cargo VARCHAR(50) NOT NULL,
     RIF VARCHAR(20) NOT NULL,
 
     CONSTRAINT PK_POSTULA PRIMARY KEY (CI, RIF, cargo, Fecha_Oferta),

@@ -21,9 +21,9 @@ async function cargarDatos() {
         const { periodos, especializaciones } = data;
         const activa   = periodos?.find(v => !v.fecha_fin);
         const subtipos = especializaciones?.map(e => e.subtipo).join(', ') || 'Sin rol';
-        return { ...m, subtipos, especializaciones: especializaciones || [], periodoActivo: !!activa };
+        return { ...m, subtipos, especializaciones: especializaciones || [], periodos: periodos || [], periodoActivo: !!activa };
       } catch {
-        return { ...m, subtipos: 'Sin rol', especializaciones: [], periodoActivo: false };
+        return { ...m, subtipos: 'Sin rol', especializaciones: [], periodos: [], periodoActivo: false };
       }
     }));
     aplicarFiltros();
@@ -177,12 +177,14 @@ document.getElementById('tbody').addEventListener('click', async (e) => {
   if (action === 'gestionar') {
     document.getElementById('modal-roles-nombre').textContent = nombre;
     const miembro = todos.find(m => m.ci === ci);
-    const lista   = document.getElementById('lista-roles-actuales');
+    const listaAct = document.getElementById('lista-roles-actuales');
+    const listaHist = document.getElementById('lista-historial-roles');
 
+    // 1. Roles Activos (Simultáneos)
     if (!miembro.especializaciones || miembro.especializaciones.length === 0) {
-      lista.innerHTML = '<p style="color:var(--muted);font-size:13px">Este miembro no tiene roles asignados.</p>';
+      listaAct.innerHTML = '<p style="color:var(--muted);font-size:13px">Este miembro no tiene roles asignados.</p>';
     } else {
-      lista.innerHTML = miembro.especializaciones.map(e => {
+      listaAct.innerHTML = miembro.especializaciones.map(e => {
         const tipoEndpoint = {
           'Becario': 'becario', 'Preparador': 'preparador', 'Estudiante': 'estudiante',
           'Profesor': 'profesor', 'PersonalAdministrativo': 'personaladmin', 'Egresado': 'egresado'
@@ -194,16 +196,35 @@ document.getElementById('tbody').addEventListener('click', async (e) => {
             <button class="btn-icon" data-editar="${tipoEndpoint}" data-datos='${JSON.stringify(e.datos)}' title="Editar datos">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn-icon danger" data-quitar="${tipoEndpoint}" title="Quitar rol">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+            <button class="btn-icon error" data-quitar="${tipoEndpoint}" title="Quitar rol">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
-        </div>`}).join('');
+        </div>`;
+      }).join('');
+    }
+
+    // 2. Historial de Periodos de Vinculación
+    if (!miembro.periodos || miembro.periodos.length === 0) {
+      listaHist.innerHTML = '<p style="color:var(--muted);font-size:13px">No hay historial registrado.</p>';
+    } else {
+      listaHist.innerHTML = miembro.periodos.map(p => {
+        const inicio = new Date(p.fecha_inicio).toLocaleDateString();
+        const fin = p.fecha_fin ? new Date(p.fecha_fin).toLocaleDateString() : 'Actualmente activo';
+        return `
+        <div style="padding:10px 0;border-bottom:0.5px solid var(--border); font-size:13px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-weight:600;color:var(--text)">Rol principal: ${p.rol || 'No especificado'}</span>
+            <span class="badge ${p.fecha_fin ? 'badge--inactivo' : 'badge--activo'}">${p.fecha_fin ? 'Cerrado' : 'Activo'}</span>
+          </div>
+          <div style="color:var(--muted)">Desde: ${inicio} — Hasta: ${fin}</div>
+        </div>`;
+      }).join('');
     }
 
     // También mostrar opción de cerrar período si está activo
     if (miembro.periodoActivo) {
-      lista.innerHTML += `
+      listaHist.innerHTML += `
         <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
           <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Período de vinculación</p>
           <button class="btn-primary" style="width:100%;background:#D93025" id="btn-cerrar-periodo">Cerrar período activo</button>

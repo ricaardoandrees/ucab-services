@@ -24,6 +24,19 @@ async function grantOperador(ci) {
   try { await pool.query(`GRANT rol_operador TO "${safeCI}"`); } catch { /* ya lo tiene */ }
 }
 
+// Helper: Verifica la RN de "Un solo rol principal a la vez"
+async function validarUnSoloRolPrincipal(ci, nuevoRol) {
+  const rolesPrincipales = ['Estudiante', 'Profesor', 'PersonalAdministrativo', 'Egresado'];
+  for (let r of rolesPrincipales) {
+    if (r.toLowerCase() === nuevoRol.toLowerCase()) continue;
+    const res = await pool.query(`SELECT 1 FROM ${r} WHERE CI = $1`, [ci]);
+    if (res.rowCount > 0) {
+      return `El miembro tiene actualmente el rol principal de ${r}. Debes quitarle ese rol antes de poder asignarle el rol de ${nuevoRol}.`;
+    }
+  }
+  return null; // Todo en orden
+}
+
 /* ── GET /api/vinculaciones/:ci
    Historial de vinculaciones de un miembro (HU-15/22)
    Detecta el subtipo consultando las tablas de especialización */
@@ -57,10 +70,8 @@ router.get('/:ci', auth, async (req, res) => {
       especializaciones.push({ subtipo: 'Preparador', datos: { ...(est.rows[0] || {}), ...p.rows[0] } });
     }
 
-    if (b.rowCount === 0 && p.rowCount === 0) {
-      const est = await pool.query(`SELECT * FROM Estudiante WHERE CI = $1`, [ci]);
-      if (est.rowCount > 0) especializaciones.push({ subtipo: 'Estudiante', datos: est.rows[0] });
-    }
+    const est = await pool.query(`SELECT * FROM Estudiante WHERE CI = $1`, [ci]);
+    if (est.rowCount > 0) especializaciones.push({ subtipo: 'Estudiante', datos: est.rows[0] });
 
     const prof = await pool.query(`SELECT * FROM Profesor WHERE CI = $1`, [ci]);
     if (prof.rowCount > 0) especializaciones.push({ subtipo: 'Profesor', datos: prof.rows[0] });
@@ -206,6 +217,9 @@ router.put('/:ci/estudiante', auth, autorizar('admin', 'director'), async (req, 
   const { ci } = req.params;
   const { promedio_ponderado, escuela, semestre_actual, uc_aprobadas, facultad } = req.body;
 
+  const errRN = await validarUnSoloRolPrincipal(ci, 'Estudiante');
+  if (errRN) return res.status(400).json({ error: errRN });
+
   try {
     const existe = await pool.query(`SELECT 1 FROM Estudiante WHERE CI = $1`, [ci]);
     if (existe.rowCount === 0) {
@@ -233,23 +247,24 @@ router.put('/:ci/becario', auth, autorizar('admin', 'director'), async (req, res
   const { ci } = req.params;
   const { tipo_beca, estatus_beneficio } = req.body;
 
-    const esEstudianteBecario = await pool.query(`SELECT 1 FROM Estudiante WHERE CI = $1`, [ci]);
+    const esEstudianteBecario = await pool.query(`SELECT promedio_ponderado FROM Estudiante WHERE CI = $1`, [ci]);
     if (esEstudianteBecario.rowCount === 0) {
       return res.status(400).json({ error: 'El miembro debe ser Estudiante antes de ser Becario.' });
     }
+    const cumple = esEstudianteBecario.rows[0].promedio_ponderado >= 16;
 
   try {
     const existe = await pool.query(`SELECT 1 FROM Becario WHERE CI = $1`, [ci]);
     if (existe.rowCount === 0) {
       await pool.query(
         `INSERT INTO Becario (CI, tipo_beca, estatus_beneficio, cumplimiento_indice)
-         VALUES ($1,$2,$3, false)`,
-        [ci, tipo_beca, estatus_beneficio]
+         VALUES ($1,$2,$3, $4)`,
+        [ci, tipo_beca, estatus_beneficio, cumple]
       );
     } else {
       await pool.query(
-        `UPDATE Becario SET tipo_beca=$1, estatus_beneficio=$2 WHERE CI=$3`,
-        [tipo_beca, estatus_beneficio, ci]
+        `UPDATE Becario SET tipo_beca=$1, estatus_beneficio=$2, cumplimiento_indice=$3 WHERE CI=$4`,
+        [tipo_beca, estatus_beneficio, cumple, ci]
       );
     }
     res.json({ mensaje: 'Ficha de becario actualizada.' });
@@ -288,6 +303,9 @@ router.put('/:ci/profesor', auth, autorizar('admin', 'director'), async (req, re
   const { ci } = req.params;
   const { carga_horaria, escalafon, cod_investigador } = req.body;
 
+  const errRN = await validarUnSoloRolPrincipal(ci, 'Profesor');
+  if (errRN) return res.status(400).json({ error: errRN });
+
   try {
     const existe = await pool.query(`SELECT 1 FROM Profesor WHERE CI = $1`, [ci]);
     if (existe.rowCount === 0) {
@@ -312,6 +330,9 @@ router.put('/:ci/profesor', auth, autorizar('admin', 'director'), async (req, re
 router.put('/:ci/personaladmin', auth, autorizar('admin', 'director'), async (req, res) => {
   const { ci } = req.params;
   const { adscripcion_presupuestaria, cargo, carga_semanal } = req.body;
+
+  const errRN = await validarUnSoloRolPrincipal(ci, 'PersonalAdministrativo');
+  if (errRN) return res.status(400).json({ error: errRN });
 
   try {
     const existe = await pool.query(`SELECT 1 FROM PersonalAdministrativo WHERE CI = $1`, [ci]);
@@ -350,6 +371,9 @@ router.put('/:ci/personaladmin', auth, autorizar('admin', 'director'), async (re
 router.put('/:ci/egresado', auth, autorizar('admin', 'director'), async (req, res) => {
   const { ci } = req.params;
   const { titulo, indice_final, ano_graduacion } = req.body;
+
+  const errRN = await validarUnSoloRolPrincipal(ci, 'Egresado');
+  if (errRN) return res.status(400).json({ error: errRN });
 
   try {
     const existe = await pool.query(`SELECT 1 FROM Egresado WHERE CI = $1`, [ci]);
@@ -401,11 +425,30 @@ router.delete('/:ci/rol/:tipo', auth, autorizar('admin', 'director'), async (req
       await pool.query(`REVOKE rol_infraestructura FROM "${safeCI}"`).catch(() => {});
     }
 
-    // Si era Becario o Preparador → eliminar también de Estudiante si no tiene otro motivo
-    // (Becario y Preparador son subclases de Estudiante — si se quita el subrol
-    //  se mantiene Estudiante porque puede seguir siendo estudiante regular)
+    // Automatización del Historial:
+    // Al quitar un rol, cerramos el período actual para dejar registro histórico
+    await pool.query(`UPDATE PeriodoVinculacion SET Fecha_Fin = NOW() WHERE CI = $1 AND Fecha_Fin IS NULL`, [ci]);
 
-    res.json({ mensaje: `Rol ${tipo} eliminado correctamente.` });
+    // Averiguar cuál es el nuevo rol principal que le queda para abrir un nuevo período
+    let nuevoRol = null;
+    if ((await pool.query('SELECT 1 FROM Profesor WHERE CI=$1', [ci])).rowCount > 0) nuevoRol = 'Profesor';
+    else if ((await pool.query('SELECT 1 FROM PersonalAdministrativo WHERE CI=$1', [ci])).rowCount > 0) nuevoRol = 'PersonalAdministrativo';
+    else if ((await pool.query('SELECT 1 FROM Estudiante WHERE CI=$1', [ci])).rowCount > 0) nuevoRol = 'Estudiante';
+    else if ((await pool.query('SELECT 1 FROM Egresado WHERE CI=$1', [ci])).rowCount > 0) nuevoRol = 'Egresado';
+
+    // Abrir nuevo período solo si le queda algún rol
+    if (nuevoRol) {
+      await pool.query(`INSERT INTO PeriodoVinculacion (Fecha_Inicio, CI, rol) VALUES (NOW(), $1, $2)`, [ci, nuevoRol]);
+      
+      // Reactivar cuenta si el trigger de PostgreSQL la suspendió temporalmente al cerrar el período
+      await pool.query(
+        `UPDATE Miembro SET estado_de_cuenta = 'Activa'
+         WHERE ci = $1 AND estado_de_cuenta = 'Suspendida'`,
+        [ci]
+      );
+    }
+
+    res.json({ mensaje: `Rol ${tipo} eliminado correctamente. Historial actualizado.` });
   } catch (err) {
     console.error('Error DELETE /vinculaciones/:ci/rol/:tipo:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
